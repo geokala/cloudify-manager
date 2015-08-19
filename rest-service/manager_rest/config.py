@@ -20,6 +20,7 @@ class Config(object):
         self._db_address = 'localhost'
         self._db_port = 9200
         self._amqp_address = 'localhost'
+        self.amqp_ca_path = ''
         self._file_server_root = None
         self._file_server_base_uri = None
         self._file_server_blueprints_folder = None

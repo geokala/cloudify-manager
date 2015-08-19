@@ -16,6 +16,7 @@
 
 from celery import Celery
 from manager_rest import config
+import ssl
 
 TASK_STATE_PENDING = 'PENDING'
 TASK_STATE_STARTED = 'STARTED'
@@ -32,6 +33,12 @@ class CeleryClient(object):
         self.celery.conf.update(
             CELERY_TASK_SERIALIZER="json",
             CELERY_TASK_RESULT_EXPIRES=600)
+        if config.instance().amqp_ca_path != '':
+            ssl_settings = {
+                'ca_certs': config.instance().amqp_ca_path,
+                'cert_reqs':  ssl.CERT_REQUIRED,
+            }
+            self.celery.conf.update(BROKER_USE_SSL=ssl_settings)
 
     def execute_task(self, task_name, task_queue, task_id=None, kwargs=None):
         """
