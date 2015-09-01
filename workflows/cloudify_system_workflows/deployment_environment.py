@@ -78,6 +78,8 @@ def create(ctx, **kwargs):
             ctx.execute_task(
                 task_name='cloudify_agent.installer.operations.stop'))
 
+    WORKFLOWS_WORKER_PAYLOAD['ctx'] = ctx
+
     # installing the workflows worker
     sequence.add(
         ctx.send_event('Creating deployment workflows worker'),
