@@ -20,11 +20,23 @@ from cloudify.manager import get_rest_client
 from cloudify.workflows.workflow_context import task_config
 
 
-WORKFLOWS_WORKER_PAYLOAD = {
-    'cloudify_agent': {
+def _generate_workflows_worker_agent_dict(bootstrap_context):
+    """
+        Generate the workflows worker cloudify_agent dict, ensuring it has the
+        bootstrap cloudify_agent as well.
+    """
+    try:
+        cloudify_agent = vars(bootstrap_context.cloudify_agent)
+    except TypeError:
+        # On 2.7.4 vars may fail with a TypeError, use
+        # old _asdict approach (obsolete in 3)
+        cloudify_agent = bootstrap_context.cloudify_agent._asdict()
+
+    cloudify_agent.update({
         'workflows_worker': True
-    }
-}
+    })
+
+    return cloudify_agent
 
 
 @workflow
@@ -78,7 +90,12 @@ def create(ctx, **kwargs):
             ctx.execute_task(
                 task_name='cloudify_agent.installer.operations.stop'))
 
-    WORKFLOWS_WORKER_PAYLOAD['ctx'] = ctx
+    WORKFLOWS_WORKER_PAYLOAD = {
+        'ctx': ctx,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
+        ),
+    }
 
     # installing the workflows worker
     sequence.add(
@@ -132,6 +149,13 @@ def delete(ctx, **kwargs):
     graph = ctx.graph_mode()
     sequence = graph.sequence()
 
+    WORKFLOWS_WORKER_PAYLOAD = {
+        'ctx': ctx,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
+        ),
+    }
+
     sequence.add(
         # uninstalling the operations worker
         ctx.send_event('Stopping deployment operations worker'),
@@ -164,6 +188,13 @@ def start(ctx, **kwargs):
     graph = ctx.graph_mode()
     sequence = graph.sequence()
 
+    WORKFLOWS_WORKER_PAYLOAD = {
+        'ctx': ctx,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
+        ),
+    }
+
     sequence.add(
         ctx.send_event('Starting deployment operations worker'),
         ctx.execute_task(
@@ -181,6 +212,13 @@ def start(ctx, **kwargs):
 def stop(ctx, prerequisite_task_id, prerequisite_task_timeout=60, **kwargs):
     graph = ctx.graph_mode()
     sequence = graph.sequence()
+
+    WORKFLOWS_WORKER_PAYLOAD = {
+        'ctx': ctx,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
+        ),
+    }
 
     @task_config(total_retries=1)
     def wait_for_prerequisite_task_to_finish():
