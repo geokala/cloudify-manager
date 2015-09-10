@@ -20,7 +20,7 @@ from cloudify.manager import get_rest_client
 from cloudify.workflows.workflow_context import task_config
 
 
-def _generate_worker_agent_dict(bootstrap_context, workflows_worker=False):
+def _generate_workflows_worker_agent_dict(bootstrap_context):
     """
         Generate the workflows worker cloudify_agent dict, ensuring it has the
         bootstrap cloudify_agent as well.
@@ -32,10 +32,9 @@ def _generate_worker_agent_dict(bootstrap_context, workflows_worker=False):
         # old _asdict approach (obsolete in 3)
         cloudify_agent = bootstrap_context.cloudify_agent._asdict()
 
-    if workflows_worker:
-        cloudify_agent.update({
-            'workflows_worker': True
-        })
+    cloudify_agent.update({
+        'workflows_worker': True
+    })
 
     return cloudify_agent
 
@@ -58,41 +57,20 @@ def create(ctx, **kwargs):
     workflow_plugins = filter(lambda plugin: plugin['install'],
                               workflow_plugins)
 
-    WORKER_PAYLOAD = {
-        'ctx': ctx,
-        'cloudify_agent': _generate_worker_agent_dict(
-            bootstrap_context=ctx.bootstrap_context,
-        ),
-    }
-
     # installing the operations worker
     sequence.add(
         ctx.send_event('Creating deployment operations worker'),
         ctx.execute_task(
-            task_name='cloudify_agent.installer.operations.create',
-            kwargs=WORKER_PAYLOAD,
-        ),
+            task_name='cloudify_agent.installer.operations.create'),
         ctx.send_event('Configuring deployment operations worker'),
         ctx.execute_task(
-            task_name='cloudify_agent.installer.operations.configure',
-            kwargs=WORKER_PAYLOAD,
-        ),
+            task_name='cloudify_agent.installer.operations.configure'),
         ctx.send_event('Starting deployment operations worker'),
         ctx.execute_task(
-            task_name='cloudify_agent.installer.operations.start',
-            kwargs=WORKER_PAYLOAD,
-        ),
+            task_name='cloudify_agent.installer.operations.start')
     )
 
     if deployment_plugins:
-        PLUGINS_INSTALL_PAYLOAD = {
-            'ctx': ctx,
-            'cloudify_agent': _generate_worker_agent_dict(
-                bootstrap_context=ctx.bootstrap_context,
-            ),
-            'plugins': deployment_plugins,
-        }
-
         sequence.add(
             ctx.send_event('Installing deployment operations plugins'),
             ctx.execute_task(
@@ -100,27 +78,22 @@ def create(ctx, **kwargs):
                 task_target=ctx.deployment.id,
                 task_name='cloudify_agent.operations'
                           '.install_plugins',
-                kwargs=PLUGINS_INSTALL_PAYLOAD,
+                kwargs={'plugins': deployment_plugins},
                 local=False),
             ctx.execute_task(
                 task_name='cloudify_agent.installer.operations.restart',
-                kwargs=WORKER_PAYLOAD,
                 send_task_events=False))
 
     if is_transient_workers:
         sequence.add(
             ctx.send_event('Stopping deployment operations worker'),
             ctx.execute_task(
-                task_name='cloudify_agent.installer.operations.stop',
-                kwargs=WORKER_PAYLOAD,
-            )
-        )
+                task_name='cloudify_agent.installer.operations.stop'))
 
     WORKFLOWS_WORKER_PAYLOAD = {
         'ctx': ctx,
-        'cloudify_agent': _generate_worker_agent_dict(
-            bootstrap_context=ctx.bootstrap_context,
-            workflows_worker=True,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
         ),
     }
 
@@ -140,14 +113,6 @@ def create(ctx, **kwargs):
             kwargs=WORKFLOWS_WORKER_PAYLOAD))
 
     if workflow_plugins:
-        WORKFLOW_PLUGINS_INSTALL_PAYLOAD = {
-            'ctx': ctx,
-            'cloudify_agent': _generate_worker_agent_dict(
-                bootstrap_context=ctx.bootstrap_context,
-            ),
-            'plugins': workflow_plugins,
-        }
-
         sequence.add(
             ctx.send_event('Installing deployment workflows plugins'),
             ctx.execute_task(
@@ -155,7 +120,7 @@ def create(ctx, **kwargs):
                 task_target='{0}_workflows'.format(ctx.deployment.id),
                 task_name='cloudify_agent.operations'
                           '.install_plugins',
-                kwargs=WORKFLOW_PLUGINS_INSTALL_PAYLOAD,
+                kwargs={'plugins': workflow_plugins},
                 local=False),
             ctx.execute_task(
                 task_name='cloudify_agent.installer.operations.restart',
@@ -178,8 +143,6 @@ def create(ctx, **kwargs):
     return graph.execute()
 
 
-# TODO: ADD WORKER_PAYLOAD TO REST OF FILE
-
 @workflow
 def delete(ctx, **kwargs):
 
@@ -188,9 +151,8 @@ def delete(ctx, **kwargs):
 
     WORKFLOWS_WORKER_PAYLOAD = {
         'ctx': ctx,
-        'cloudify_agent': _generate_worker_agent_dict(
-            bootstrap_context=ctx.bootstrap_context,
-            workflows_worker=True,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
         ),
     }
 
@@ -228,9 +190,8 @@ def start(ctx, **kwargs):
 
     WORKFLOWS_WORKER_PAYLOAD = {
         'ctx': ctx,
-        'cloudify_agent': _generate_worker_agent_dict(
-            bootstrap_context=ctx.bootstrap_context,
-            workflows_worker=True,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
         ),
     }
 
@@ -254,9 +215,8 @@ def stop(ctx, prerequisite_task_id, prerequisite_task_timeout=60, **kwargs):
 
     WORKFLOWS_WORKER_PAYLOAD = {
         'ctx': ctx,
-        'cloudify_agent': _generate_worker_agent_dict(
-            bootstrap_context=ctx.bootstrap_context,
-            workflows_worker=True,
+        'cloudify_agent': _generate_workflows_worker_agent_dict(
+            bootstrap_context=ctx.bootstrap_context
         ),
     }
 
