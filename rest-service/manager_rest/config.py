@@ -22,6 +22,7 @@ class Config(object):
         self.amqp_address = 'localhost'
         self.amqp_username = 'testuser'
         self.amqp_password = 'testpass'
+        self.amqp_ca_path = ''
         self.file_server_root = None
         self.file_server_base_uri = None
         self.file_server_blueprints_folder = None

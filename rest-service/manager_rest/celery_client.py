@@ -32,6 +32,13 @@ class CeleryClient(object):
             username=config.instance().amqp_username,
             password=config.instance().amqp_password,
         )
+        # Use the encrypted connection if supplied
+        if config.instance().amqp_ca_path != '':
+            ssl_settings = {
+                'ca_certs': config.instance().amqp_ca_path,
+                'cert_reqs':  ssl.CERT_REQUIRED,
+            }
+            self.celery.conf.update(BROKER_USE_SSL=ssl_settings)
         self.celery = Celery(broker=amqp_uri, backend=amqp_uri)
         self.celery.conf.update(
             CELERY_TASK_SERIALIZER="json",

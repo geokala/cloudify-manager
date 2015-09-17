@@ -20,6 +20,7 @@ import errno
 import json
 import subprocess
 from os import path
+import ssl
 
 import requests
 import pika
@@ -83,6 +84,30 @@ def _publish_configuration_event(state, deployment_config_dir_path):
 
     cloudify_agent = ctx.bootstrap_context.cloudify_agent
 
+    # This is actually used in the management worker, so the worker_conf
+    # should exist
+    try:
+        # If we're in an environment with celery we should have a
+        # worker configuration, but we'll check for backwards
+        # compatibility
+        import worker_conf
+        broker_cert_path = worker_conf.broker_cert_path
+    except (ImportError, AttributeError):
+        broker_cert_path = ''
+
+    if broker_cert_path == '':
+        # No SSL for rabbit
+        broker_port = 5672
+        ssl_enabled = False
+        ssl_options = {}
+    else:
+        broker_port = 5671
+        ssl_enabled = True
+        ssl_options = {
+            'ca_certs': broker_cert_path,
+            'cert_reqs': ssl.CERT_REQUIRED,
+        }
+
     credentials = pika.credentials.PlainCredentials(
         username=cloudify_agent.broker_user,
         password=cloudify_agent.broker_pass,
@@ -90,7 +115,10 @@ def _publish_configuration_event(state, deployment_config_dir_path):
 
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host=get_manager_ip(),
-                                  credentials=credentials)
+                                  port=broker_port,
+                                  credentials=credentials,
+                                  ssl=ssl_enabled,
+                                  ssl_options=ssl_options)
     )
 
     try:
